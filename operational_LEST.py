@@ -334,3 +334,82 @@ df_for.plot(grid=True, ax=ax, color= ["r","b"],linestyle='--')
 ax.set_title("Forecast meteorological model versus machine learning")
 ax.grid(True, which = "both", axis = "both")
 st.pyplot(fig)
+
+
+#@title BR or FG
+#open algorithm prec d0 d1
+alg = pickle.load(open("algorithms/brfg_LEST_d0.al","rb"))
+alg1 = pickle.load(open("algorithms/brfg_LEST_d1.al","rb"))
+
+#select model variables
+model_x_var = meteo_model[:24][alg["x_var"]]
+model_x_var1 = meteo_model[24:48][alg1["x_var"]]
+
+# forecat br/fg from ml
+brfg_ml = alg["pipe"].predict(model_x_var)
+brfg_ml1 = alg1["pipe"].predict(model_x_var1)
+
+#label metars br/fg data
+metars["brfg_o_l"] = "No BR/FG"
+mask = metars['wxcodes_o'].str.contains("BR")
+metars.loc[mask,["brfg_o_l"]] = "BR/FG"
+mask = metars['wxcodes_o'].str.contains("FG")
+metars.loc[mask,["brfg_o_l"]] = "BR/FG"
+
+#set up dataframe forecast machine learning 
+df_for = pd.DataFrame({"time": meteo_model[:48].index,
+                       "brfg_ml": np.concatenate((brfg_ml,brfg_ml1),axis =0),})
+df_for = df_for.set_index("time")
+
+# concat metars an forecast
+df_res = pd.concat([df_for,metars["brfg_o_l"]], axis = 1)
+df_res_dropna = df_res.dropna()
+
+#Heidke skill score ml
+cm_ml = pd.crosstab(df_res.dropna().brfg_o_l, df_res.dropna().brfg_ml, margins=True,)
+acc_ml = round(accuracy_score(df_res_dropna.brfg_o_l,df_res_dropna.brfg_ml),2)
+HSS_ml = Hss(cm_ml)
+
+#show results
+st.markdown(" ### **BR or FG**")
+fig1, ax = plt.subplots(figsize=(4,2))
+sns.heatmap(cm_ml, annot=True, cmap='coolwarm',
+            linewidths=.2, linecolor='black',)
+plt.title("Confusion matrix\nAccuracy machine learning: {:.0%}".format(acc_ml))
+st.pyplot(fig1)
+
+fig, ax = plt.subplots(figsize=(10,4))
+plt.plot(df_res_dropna.index, df_res_dropna['brfg_ml'],marker="^", markersize=8, 
+         markerfacecolor='w', color="b",linestyle='');
+plt.plot(df_res_dropna.index, df_res_dropna['brfg_o_l'],marker="*",markersize=8, 
+         markerfacecolor='w', color="g",linestyle='');
+plt.legend(('brfg ml', 'brfg observed'),)
+plt.grid(True,axis="both")
+plt.title("Actual Heidke skill score machine learning: {}. Reference: 0.64".format(HSS_ml))
+st.pyplot(fig)
+
+fig, ax = plt.subplots(figsize=(10,4))
+plt.plot(df_for.index, df_for['brfg_ml'],marker="^",linestyle='');
+plt.title("Forecast machine learning")
+plt.grid(True,axis="both")
+st.pyplot(fig)
+
+#show probabilistic results
+prob = (np.concatenate((alg["pipe"].predict_proba(model_x_var),alg1["pipe"].predict_proba(model_x_var1)),axis =0)).transpose()
+df_prob = (pd.DataFrame(prob,index =alg["pipe"].classes_ ).T.set_index(meteo_model[:48].index.map(lambda t: t.strftime('%d-%m %H'))))
+fig, ax = plt.subplots(figsize=(10,8))
+df_prob["BR/FG"] = df_prob["BR/FG"].round(1)
+df_prob["BR/FG"].plot(ax = ax, grid = True, ylim =[0, 1], title = "BR or FG probability", kind='bar')
+st.pyplot(fig)
+
+
+#global results
+st.write("#### **Global results**")
+st.write("Better meteorological model outcome: {}".format(score_wrf))
+st.write(best_wrf)
+st.write("Better machine learning outcome: {}".format(score_ml))
+st.write(best_ml)
+
+
+st.write("Project [link](https://github.com/granantuin/LECO)")
+
