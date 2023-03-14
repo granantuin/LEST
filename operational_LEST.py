@@ -176,8 +176,8 @@ best_wrf = []
 algo_dir = 'algorithms/'
 
 #get meteorological model from algorithm file. Select "coor" key to get coordinates. Pick up first algorithm all same coordinates
-meteo_model,con = get_meteogalicia_model_4Km(pickle.load(open(algo_dir+os.listdir(algo_dir)[0],"rb"))["coor"])
-
+#meteo_model,con = get_meteogalicia_model_4Km(pickle.load(open(algo_dir+os.listdir(algo_dir)[0],"rb"))["coor"])
+meteo_model,con = get_meteogalicia_model_4Km(pickle.load(open("algorithms/dir_LEST_d0.al","rb"))["coor"])
 #add time variables
 meteo_model["hour"] = meteo_model.index.hour
 meteo_model["month"] = meteo_model.index.month
