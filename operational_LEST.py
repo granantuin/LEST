@@ -588,6 +588,56 @@ df_prob["<= 1000 m"].plot(ax=ax, grid=True, ylim =[0, 1], title="Horizontal visi
 st.pyplot(fig)
 
 
+#@title Temperature
+
+#open algorithm temperature d0 d1
+alg = pickle.load(open("algorithms/temp_LEST_d0.al","rb"))
+alg1 = pickle.load(open("algorithms/temp_LEST_d1.al","rb"))
+
+#select model variables
+model_x_var = meteo_model[:24][alg["x_var"]]
+model_x_var1 = meteo_model[24:48][alg1["x_var"]]
+
+# forecat temperature from ml
+temp_ml = alg["pipe"].predict(meteo_model[:24][alg["x_var"]])
+temp_ml1 = alg1["pipe"].predict(meteo_model[24:48][alg1["x_var"]])
+df_for = pd.DataFrame({"time":meteo_model[:48].index,
+                       "temp_WRF": np.concatenate((np.rint(model_x_var["temp0"]-273.16),
+                                                   np.rint(model_x_var1["temp0"]-273.16)),axis=0),
+                       "temp_ml": np.concatenate((np.rint(temp_ml-273.16),np.rint(temp_ml1-273.16)),axis =0),})
+df_for = df_for.set_index("time")
+
+
+# concat metars an forecast
+df_res = pd.concat([df_for,metars["temp_o"]],axis = 1)
+
+#get mae
+df_res_dropna = df_res.dropna()
+mae_ml = round(mean_absolute_error(df_res_dropna.temp_o,df_res_dropna.temp_ml),2)
+mae_wrf = round(mean_absolute_error(df_res_dropna.temp_o,df_res_dropna.temp_WRF),2)
+if mae_ml < mae_wrf:
+  score_ml+=1
+  best_ml.append("temperature")   
+if mae_ml > mae_wrf:  
+  score_wrf+=1
+  best_wrf.append("temperature")
+     
+#print results
+st.markdown(" #### **Temperature Celsius**")
+fig, ax = plt.subplots(figsize=(10,6))
+df_res.dropna().plot(grid=True, ax=ax, color=["r","b","g"],linestyle='--');
+title = "Actual mean absolute error meteorological model: {}. Reference: 1.29\nActual mean absolute error machine learning: {}. Reference: 0.85".format(mae_wrf,mae_ml)
+ax.set_title(title)
+ax.grid(True, which = "both", axis = "both")
+st.pyplot(fig)
+
+fig, ax = plt.subplots(figsize=(10,6))
+df_for.plot(grid=True, ax=ax, color= ["r","b"],linestyle='--')
+ax.set_title("Forecast meteorological model versus machine learning")
+ax.grid(True, which = "both", axis = "both")
+st.pyplot(fig)
+
+
 
 
 #global results
