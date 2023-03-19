@@ -638,6 +638,55 @@ ax.grid(True, which = "both", axis = "both")
 st.pyplot(fig)
 
 
+#@title Mean sea level pressure
+
+#open algorithm temperature d0 d1
+alg = pickle.load(open("algorithms/pres_LEST_d0.al","rb"))
+alg1 = pickle.load(open("algorithms/pres_LEST_d1.al","rb"))
+
+#select model variables
+model_x_var = meteo_model[:24][alg["x_var"]]
+model_x_var1 = meteo_model[24:48][alg1["x_var"]]
+
+# forecat mean sea level pressure from ml and wrf
+pres_ml = alg["pipe"].predict(meteo_model[:24][alg["x_var"]])
+pres_ml1 = alg1["pipe"].predict(meteo_model[24:48][alg1["x_var"]])
+df_for = pd.DataFrame({"time":meteo_model[:48].index,
+                       "mslp_WRF": np.concatenate((np.rint(model_x_var["mslp0"]/100),
+                                                   np.rint(model_x_var1["mslp0"]/100)),axis=0),
+                       "mslp_ml": np.concatenate((np.rint(pres_ml),np.rint(pres_ml1)),axis =0),})
+df_for = df_for.set_index("time")
+
+
+# concat metars an forecast
+df_res = pd.concat([df_for,metars["mslp_o"]],axis = 1)
+
+#get mae
+df_res_dropna = df_res.dropna()
+mae_ml = round(mean_absolute_error(df_res_dropna.mslp_o,df_res_dropna.mslp_ml),2)
+mae_wrf = round(mean_absolute_error(df_res_dropna.mslp_o,df_res_dropna.mslp_WRF),2)
+if mae_ml < mae_wrf:
+  score_ml+=1
+  best_ml.append("pressure")   
+if mae_ml > mae_wrf:  
+  score_wrf+=1
+  best_wrf.append("pressure")
+     
+#print results
+st.markdown("#### **Pressure hectopascals**")
+fig, ax = plt.subplots(figsize=(10,6))
+df_res.dropna().plot(grid=True, ax=ax, color=["r","b","g"],linestyle='--');
+title = "Actual mean absolute error meteorological model: {}. Reference:0.6\nActual mean absolute error machine learning: {}. Reference: 0.4 ".format(mae_wrf,mae_ml)
+ax.set_title(title)
+ax.grid(True, which = "both", axis = "both")
+st.pyplot(fig)
+
+# Create the plot
+fig, ax = plt.subplots(figsize=(10,6))
+df_for.plot(grid=True, ax=ax, color=["r","b"],linestyle='--')
+ax.set_title("Forecast meteorological model versus machine learning")
+ax.grid(True, which = "both", axis = "both")
+st.pyplot(fig)
 
 
 #global results
